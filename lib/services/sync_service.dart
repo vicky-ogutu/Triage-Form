@@ -1,16 +1,27 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../repositories/triage_repository.dart';
-import 'connectivity_service.dart';
+import '../state/sync_notifier.dart';
+import '../providers/providers.dart'; // for triageRepositoryProvider
+import 'connectivity_service.dart';   // for connectivityServiceProvider
 
 
-class SyncService { // SyncService class to handle syncing of records
+
+final syncServiceProvider = Provider<SyncService>((ref) {
+  final repository = ref.watch(triageRepositoryProvider);
+  final connectivity = ref.watch(connectivityServiceProvider);
+  final notifier = ref.watch(syncNotifierProvider.notifier);
+  return SyncService(repository, connectivity, notifier);
+});
+
+class SyncService {
   final TriageRepository repository;
   final ConnectivityService connectivity;
+  final SyncNotifier _notifier;
   StreamSubscription<bool>? _subscription;
   bool _isSyncing = false;
 
-  SyncService(this.repository, this.connectivity) {
+  SyncService(this.repository, this.connectivity, this._notifier) {
     _startListening();
   }
 
@@ -22,26 +33,38 @@ class SyncService { // SyncService class to handle syncing of records
     });
   }
 
-  Future<void> _sync() async { // Syncs the records
+  Future<void> _sync() async {
     if (_isSyncing) return;
     _isSyncing = true;
+    _notifier.setSyncing();
+
     try {
       await repository.syncPendingRecords();
+      final pending = await repository.getPendingRecords();
+      _notifier.setPendingCount(pending.length);
+      _notifier.setSuccess();
     } catch (e) {
-      // log error
+      _notifier.setError(e.toString());
     } finally {
       _isSyncing = false;
+      Future.delayed(const Duration(seconds: 2), () {
+        _notifier.resetStatus();
+      });
     }
   }
 
-
-  Future<void> onAppResumed() async {  // Called when the app resumes from background
+  Future<void> onAppResumed() async {
     if (await connectivity.isConnected && !_isSyncing) {
       await _sync();
     }
   }
 
+  Future<void> refreshPendingCount() async {
+    final pending = await repository.getPendingRecords();
+    _notifier.setPendingCount(pending.length);
+  }
+
   void dispose() {
-    _subscription?.cancel(); // Disposes the service and cancels the subscription
+    _subscription?.cancel();
   }
 }

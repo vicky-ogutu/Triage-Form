@@ -4,6 +4,13 @@ import '../enums/triage_status.dart';
 import '../models/triage_record.dart';
 import '../providers/providers.dart';
 import '../utils/priority_utils.dart';
+import '../state/sync_notifier.dart';
+import '../services/connectivity_service.dart';
+import '../services/sync_service.dart';
+
+
+
+
 
 class TriageForm extends ConsumerStatefulWidget {
   const TriageForm({super.key});
@@ -23,10 +30,10 @@ class _TriageFormState extends ConsumerState<TriageForm> {
   @override
   void initState() {
     super.initState();
-    // Optionally trigger a sync when app resumes (the sync service already listens)
+    // Refresh pending count on startup (optional)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final syncService = ref.read(syncServiceProvider);
-      // We can call onAppResumed if needed, but connectivity listener handles it.
+      syncService.refreshPendingCount();
     });
   }
 
@@ -48,51 +55,100 @@ class _TriageFormState extends ConsumerState<TriageForm> {
 
     setState(() => _isSubmitting = true);
 
-    final record = TriageRecord(
-      patientName: _nameController.text.trim(),
-      condition: _conditionController.text.trim(),
-      priority: _priority!,
-      status: _status!,
-    );
+    try {
+      final record = TriageRecord(
+        patientName: _nameController.text.trim(),
+        condition: _conditionController.text.trim(),
+        priority: _priority!,
+        status: _status!,
+      );
 
-    final repository = ref.read(triageRepositoryProvider);
-    final connectivity = ref.read(connectivityServiceProvider);
+      final repository = ref.read(triageRepositoryProvider);
+      final connectivity = ref.read(connectivityServiceProvider);
+      final syncService = ref.read(syncServiceProvider);
 
-    // Save locally immediately
-    await repository.saveRecord(record);
+      // Save locally
+      await repository.saveRecord(record);
 
-    // If online, we can optionally trigger a manual sync, but the background sync will pick it up.
-    // We'll just show a snackbar with appropriate message.
-    final bool isConnected = await connectivity.isConnected;
+      // Refresh pending count badge
+      await syncService.refreshPendingCount();
 
-    setState(() => _isSubmitting = false);
+      // Check connectivity for feedback
+      final bool isConnected = await connectivity.isConnected;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          isConnected
-              ? 'Record saved and queued for sync'
-              : 'Record saved offline, will sync when online',
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isConnected
+                ? 'Record saved and queued for sync'
+                : 'Record saved offline, will sync when online',
+          ),
+          backgroundColor: isConnected ? Colors.green : Colors.orange,
         ),
-        backgroundColor: isConnected ? Colors.green : Colors.orange,
-      ),
-    );
+      );
 
-    // Clear form
-    _nameController.clear();
-    _conditionController.clear();
-    setState(() {
-      _priority = null;
-      _status = null;
-    });
+      // Clear form
+      _nameController.clear();
+      _conditionController.clear();
+      setState(() {
+        _priority = null;
+        _status = null;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save record: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      print('Submit error: $e');
+    } finally {
+      setState(() => _isSubmitting = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Watch sync state
+    final syncState = ref.watch(syncNotifierProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Triage Intake'),
         backgroundColor: Colors.red[900],
+        actions: [
+          // Sync status badge
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Row(
+              children: [
+                // Show spinning icon when syncing
+                if (syncState.status == SyncStatus.syncing)
+                  const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                else if (syncState.pendingCount > 0)
+                  Badge(
+                    label: Text('${syncState.pendingCount}'),
+                    child: const Icon(Icons.sync),
+                  )
+                else
+                  const Icon(Icons.sync_outlined),
+                const SizedBox(width: 4),
+                // Optional: show success/error briefly
+                if (syncState.status == SyncStatus.success)
+                  const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                if (syncState.status == SyncStatus.error)
+                  const Icon(Icons.error, color: Colors.red, size: 18),
+              ],
+            ),
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -125,7 +181,7 @@ class _TriageFormState extends ConsumerState<TriageForm> {
               ),
               const SizedBox(height: 16),
 
-              // Priority Dropdown – using priorityValues and extension
+              // Priority Dropdown
               DropdownButtonFormField<int>(
                 decoration: const InputDecoration(
                   labelText: 'Priority Level *',
@@ -140,10 +196,10 @@ class _TriageFormState extends ConsumerState<TriageForm> {
                         Container(
                           width: 16,
                           height: 16,
-                          color: p.priorityColor, // extension getter
+                          color: p.priorityColor,
                         ),
                         const SizedBox(width: 8),
-                        Text('$p - ${p.priorityLabel}'), // extension getter
+                        Text('$p - ${p.priorityLabel}'),
                       ],
                     ),
                   );
@@ -171,7 +227,7 @@ class _TriageFormState extends ConsumerState<TriageForm> {
               ),
               const SizedBox(height: 24),
 
-              // Submit Button – colour changes based on priority
+              // Submit Button
               ElevatedButton(
                 onPressed: _isSubmitting ? null : _submit,
                 style: ElevatedButton.styleFrom(
@@ -191,3 +247,4 @@ class _TriageFormState extends ConsumerState<TriageForm> {
     );
   }
 }
+

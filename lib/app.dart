@@ -9,7 +9,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ProviderScope(
       child: MaterialApp(
-        title: 'EMS Triage Form',  // Title of the app
+        title: 'EMK Triage Form',  // Title of the app
         theme: ThemeData.dark(),   // Theme of the app
         home: const TriageForm(),   // Home page of the app
         debugShowCheckedModeBanner: false,

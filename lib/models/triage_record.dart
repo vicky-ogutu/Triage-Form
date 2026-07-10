@@ -3,34 +3,16 @@ import 'package:uuid/uuid.dart';
 
 import '../enums/triage_status.dart';
 
-
-@HiveType(typeId: 0)
+/// Model representing a triage record.
 class TriageRecord extends HiveObject {
-  @HiveField(0)
   final String id;
-
-  @HiveField(1)
   final String patientName;
-
-  @HiveField(2)
   final String condition;
-
-  @HiveField(3)
   final int priority; // 1 to 5
-
-  @HiveField(4)
   final TriageStatus status;
-
-  @HiveField(5)
   final DateTime createdAt;
-
-  @HiveField(6)
   bool isSynced;
-
-  @HiveField(7)
   int syncAttempts;
-
-  @HiveField(8)
   String? lastSyncError;
 
   TriageRecord({
