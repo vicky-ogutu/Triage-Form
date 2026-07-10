@@ -1,0 +1,3 @@
+enum TriageStatus {
+  pending, inTransit
+}
