@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
-import 'providers.dart'
 
 
 class ConnectivityService {  // ConnectivityService class to handle connectivity changes and provide a stream of connection status changes

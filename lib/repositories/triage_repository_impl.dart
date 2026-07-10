@@ -52,7 +52,7 @@ class TriageRepositoryImpl implements TriageRepository {
     for (final record in pending) { // For each pending record
       try {
         final response = await client.post( // Makes a POST request to the API
-          Uri.parse(apiUrl), // URL of the API endpoint
+          Uri.parse(apiUrl),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({  //  Sends the record as JSON
             'id': record.id,

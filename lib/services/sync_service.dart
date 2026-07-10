@@ -3,11 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../repositories/triage_repository.dart';
 import 'connectivity_service.dart';
 
-final syncServiceProvider = Provider<SyncService>((ref) {
-  final repository = ref.watch(triageRepositoryProvider);
-  final connectivity = ref.watch(connectivityServiceProvider);
-  return SyncService(repository, connectivity);
-});
 
 class SyncService { // SyncService class to handle syncing of records
   final TriageRepository repository;
