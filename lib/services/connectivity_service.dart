@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final connectivityServiceProvider = Provider<ConnectivityService>((ref) {
-  return ConnectivityService();
-}); //
+import 'providers.dart'
+
 
 class ConnectivityService {  // ConnectivityService class to handle connectivity changes and provide a stream of connection status changes
   final Connectivity _connectivity = Connectivity();  // Connectivity object to handle connectivity changes
