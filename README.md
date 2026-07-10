@@ -1,6 +1,3 @@
-# emk_triage_form
-
-A Triage Form
 
  EMK Triage Form
 # Fields:
