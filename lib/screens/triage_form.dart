@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../enums/triage_status.dart';
 import '../models/triage_record.dart';
 import '../providers/providers.dart';
+import '../utils/priority_utils.dart';
 
 class TriageForm extends ConsumerStatefulWidget {
   const TriageForm({super.key});
@@ -22,10 +23,10 @@ class _TriageFormState extends ConsumerState<TriageForm> {
   @override
   void initState() {
     super.initState();
-    // Listen to sync service when app resumes
+    // Optionally trigger a sync when app resumes (the sync service already listens)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final syncService = ref.read(syncServiceProvider);
-      // We can also listen to lifecycle events, but we'll rely on connectivity listener.
+      // We can call onAppResumed if needed, but connectivity listener handles it.
     });
   }
 
@@ -36,7 +37,7 @@ class _TriageFormState extends ConsumerState<TriageForm> {
     super.dispose();
   }
 
-  void _submit() async {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_priority == null || _status == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -60,27 +61,20 @@ class _TriageFormState extends ConsumerState<TriageForm> {
     // Save locally immediately
     await repository.saveRecord(record);
 
-    // If online, trigger sync manually (the background service also listens)
-    if (await connectivity.isConnected) {
-      final syncService = ref.read(syncServiceProvider);
-      // This will call syncPendingRecords, which will attempt to upload all pending including this one
-      // But syncService has a listener; we can also call sync manually to be immediate.
-      // We'll just call the repository sync directly or notify sync service.
-      // For immediate feedback, we can call repository.syncPendingRecords()
-      // but we should avoid double sync. We'll let the background service handle it.
-      // However, we want to show "submitted" and not wait for sync.
-    }
+    // If online, we can optionally trigger a manual sync, but the background sync will pick it up.
+    // We'll just show a snackbar with appropriate message.
+    final bool isConnected = await connectivity.isConnected;
 
     setState(() => _isSubmitting = false);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          await connectivity.isConnected
+          isConnected
               ? 'Record saved and queued for sync'
               : 'Record saved offline, will sync when online',
         ),
-        backgroundColor: await connectivity.isConnected ? Colors.green : Colors.orange,
+        backgroundColor: isConnected ? Colors.green : Colors.orange,
       ),
     );
 
@@ -117,7 +111,8 @@ class _TriageFormState extends ConsumerState<TriageForm> {
                 value == null || value.trim().isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 16),
-              // Condition
+
+              // Condition Description
               TextFormField(
                 controller: _conditionController,
                 decoration: const InputDecoration(
@@ -129,34 +124,36 @@ class _TriageFormState extends ConsumerState<TriageForm> {
                 value == null || value.trim().isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 16),
-              // Priority (1-5) - use dropdown or segmented buttons
+
+              // Priority Dropdown – using priorityValues and extension
               DropdownButtonFormField<int>(
                 decoration: const InputDecoration(
                   labelText: 'Priority Level *',
                   border: OutlineInputBorder(),
                 ),
                 value: _priority,
-                items: List.generate(5, (i) => i + 1)
-                    .map((p) => DropdownMenuItem<int>(
-                  value: p,
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 16,
-                        height: 16,
-                        color: _priorityColor(p),
-                      ),
-                      const SizedBox(width: 8),
-                      Text('$p - ${_priorityLabel(p)}'),
-                    ],
-                  ),
-                ))
-                    .toList(),
+                items: priorityValues.map((p) {
+                  return DropdownMenuItem<int>(
+                    value: p,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 16,
+                          height: 16,
+                          color: p.priorityColor, // extension getter
+                        ),
+                        const SizedBox(width: 8),
+                        Text('$p - ${p.priorityLabel}'), // extension getter
+                      ],
+                    ),
+                  );
+                }).toList(),
                 onChanged: (value) => setState(() => _priority = value),
                 validator: (value) => value == null ? 'Required' : null,
               ),
               const SizedBox(height: 16),
-              // Status
+
+              // Status Dropdown
               DropdownButtonFormField<TriageStatus>(
                 decoration: const InputDecoration(
                   labelText: 'Status *',
@@ -173,7 +170,8 @@ class _TriageFormState extends ConsumerState<TriageForm> {
                 validator: (value) => value == null ? 'Required' : null,
               ),
               const SizedBox(height: 24),
-              // Submit button
+
+              // Submit Button – colour changes based on priority
               ElevatedButton(
                 onPressed: _isSubmitting ? null : _submit,
                 style: ElevatedButton.styleFrom(
@@ -191,39 +189,5 @@ class _TriageFormState extends ConsumerState<TriageForm> {
         ),
       ),
     );
-  }
-
-  Color _priorityColor(int priority) {
-    switch (priority) {
-      case 1:
-        return Colors.red[900]!;
-      case 2:
-        return Colors.orange[800]!;
-      case 3:
-        return Colors.yellow[700]!;
-      case 4:
-        return Colors.green[300]!;
-      case 5:
-        return Colors.blue[200]!;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _priorityLabel(int priority) {
-    switch (priority) {
-      case 1:
-        return 'Critical';
-      case 2:
-        return 'Urgent';
-      case 3:
-        return 'Moderate';
-      case 4:
-        return 'Minor';
-      case 5:
-        return 'Non-urgent';
-      default:
-        return '';
-    }
   }
 }

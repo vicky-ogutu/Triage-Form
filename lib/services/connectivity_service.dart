@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 
-
 class ConnectivityService {  // ConnectivityService class to handle connectivity changes and provide a stream of connection status changes
   final Connectivity _connectivity = Connectivity();  // Connectivity object to handle connectivity changes
   final StreamController<bool> _connectionController = StreamController<bool>.broadcast(); // StreamController to handle connection changes
