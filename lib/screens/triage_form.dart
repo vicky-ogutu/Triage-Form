@@ -114,7 +114,7 @@ class _TriageFormState extends ConsumerState<TriageForm> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Triage Intake'),
+        title: const Text('EMK Triage Form'),
         backgroundColor: Colors.red[900],
         actions: [
           // Sync status badge
