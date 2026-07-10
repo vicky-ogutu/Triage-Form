@@ -16,7 +16,7 @@ class TriageRecord extends HiveObject {
   final String condition;
 
   @HiveField(3)
-  final int priority; // 1..5
+  final int priority; // 1 to 5
 
   @HiveField(4)
   final TriageStatus status;
